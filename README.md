@@ -1,16 +1,35 @@
-# payly
+<p align="center">
+  <img src="assets/Payly_ICON.png" alt="Payly Icon" width="120"/>
+</p>
 
-A new Flutter project.
+<h1 align="center">Payly</h1>
 
-## Getting Started
+<p align="center">
+  Aplicación móvil para personal de restaurantes que permite registrar días trabajados, calcular pagos y llevar un historial semanal de ingresos.
+</p>
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## ¿Qué es Payly?
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Payly es una app diseñada para trabajadores de restaurantes que necesitan llevar un control simple y claro de sus horas trabajadas y pagos recibidos. Sin hojas de cálculo, sin papeles — todo desde el celular.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Funcionalidades
+
+- **Registro de días trabajados** — Ingresa hora de entrada y hora de salida; Payly calcula automáticamente el valor del día.
+- **Historial de pagos** — Consulta tus registros anteriores y edita el campo de propina cuando sea necesario.
+- **Valor hora configurable** — El valor por defecto es **$7.950 COP/hora**, ajustable desde configuración.
+- **Autenticación segura** — Registro tradicional con correo y contraseña, o acceso rápido con cuenta de Google.
+
+## Stack
+
+- **Flutter** — UI multiplataforma (Android / iOS)
+- **Firebase / Supabase** — Autenticación y almacenamiento en la nube
+
+## Estado del proyecto
+
+> En desarrollo activo. Fase 1 completada: estructura base del proyecto Flutter.
+
+---
+
+*Developed by [PokyDev](https://github.com/PokyDev)*
