@@ -5,6 +5,8 @@ import '../models/payment_record.dart';
 import '../services/payments_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/payly_badge.dart';
+import '../widgets/payly_confirm_sheet.dart';
+import '../widgets/payly_splash.dart';
 
 class PaymentDetailScreen extends StatefulWidget {
   const PaymentDetailScreen({
@@ -26,8 +28,8 @@ class PaymentDetailScreen extends StatefulWidget {
 
 class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
   final _svc = PaymentsService();
+  late PaymentRecord _payment = widget.payment;
   late final _tipCtrl = TextEditingController(text: widget.payment.tip > 0 ? widget.payment.tip.toString() : '');
-  bool _saved = false;
   bool _confirmDel = false;
 
   @override
@@ -37,7 +39,7 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
   }
 
   int get _tipVal => int.tryParse(_tipCtrl.text.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
-  int get _newTotal => widget.payment.basePay + _tipVal;
+  int get _newTotal => _payment.basePay + _tipVal;
 
   String _fmtCOP(int n) => NumberFormat.currency(locale: 'es_CO', symbol: '\$', decimalDigits: 0).format(n);
 
@@ -58,28 +60,58 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
   }
 
   Future<void> _update() async {
-    final updated = widget.payment.copyWith(tip: _tipVal, hasTip: _tipVal > 0, totalPay: _newTotal);
+    final updated = _payment.copyWith(tip: _tipVal, hasTip: _tipVal > 0, totalPay: _newTotal);
     await _svc.updatePayment(widget.uid, updated);
     widget.onUpdated(updated);
     if (!mounted) return;
-    setState(() => _saved = true);
-    Future.delayed(const Duration(seconds: 2), () { if (mounted) setState(() => _saved = false); });
+    setState(() => _payment = updated);
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, _, _) => const PaylyTransitionSplash(
+          message: 'Propina actualizada',
+          tagline: 'Los cambios ya están\nguardados en la nube.',
+        ),
+        transitionsBuilder: (_, anim, _, child) => FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+      ),
+    );
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _delete() async {
     await _svc.deletePayment(widget.uid, widget.payment.id);
-    if (mounted) Navigator.of(context).pop();
     widget.onDeleted();
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, _, _) => const PaylyTransitionSplash(
+          message: 'Registro eliminado',
+          tagline: 'El pago ha sido\nretirado de tu historial.',
+        ),
+        transitionsBuilder: (_, anim, _, child) => FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+      ),
+    );
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) Navigator.of(context)..pop()..pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.pc;
-    final p = widget.payment;
+    final p = _payment;
 
     return Scaffold(
       backgroundColor: c.bg,
-      body: Stack(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: Stack(
         children: [
           SafeArea(
             child: SingleChildScrollView(
@@ -92,7 +124,7 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: Row(
                       children: [
-                        _IconBtn(icon: Icons.chevron_left_rounded, onTap: () => Navigator.pop(context), c: c),
+                        _IconBtn(icon: Icons.chevron_left_rounded, onTap: () { FocusScope.of(context).unfocus(); Navigator.pop(context); }, c: c),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -249,7 +281,7 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
                           child: ElevatedButton(
                             onPressed: _update,
                             style: ElevatedButton.styleFrom(backgroundColor: AppColors.yellow, foregroundColor: AppColors.yellowText, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                            child: Text(_saved ? '✓ Actualizado' : 'Guardar cambios', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w800)),
+                            child: Text('Guardar cambios', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w800)),
                           ),
                         ),
                       ],
@@ -260,51 +292,19 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
             ),
           ),
 
-          // Delete confirmation bottom sheet
-          if (_confirmDel)
-            GestureDetector(
-              onTap: () => setState(() => _confirmDel = false),
-              child: Container(color: Colors.black.withValues(alpha: 0.55)),
+          Positioned.fill(
+            child: PaylyConfirmSheet(
+              visible: _confirmDel,
+              title: '¿Eliminar registro?',
+              body: 'Esta acción no se puede deshacer.',
+              confirmLabel: 'Eliminar',
+              confirmColor: c.danger,
+              onConfirm: _delete,
+              onDismiss: () => setState(() => _confirmDel = false),
             ),
-          if (_confirmDel)
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: GestureDetector(
-                onTap: () {},
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 26, 20, 44),
-                  decoration: BoxDecoration(color: c.card, borderRadius: const BorderRadius.vertical(top: Radius.circular(26))),
-                  child: Column(
-                    children: [
-                      Text('¿Eliminar registro?', style: GoogleFonts.dmSans(fontSize: 17, fontWeight: FontWeight.w800, color: c.text)),
-                      const SizedBox(height: 8),
-                      Text('Esta acción no se puede deshacer.', style: GoogleFonts.dmSans(fontSize: 14, color: c.textSec)),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => setState(() => _confirmDel = false),
-                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), backgroundColor: c.cardAlt, side: BorderSide.none, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                              child: Text('Cancelar', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w700, color: c.text)),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _delete,
-                              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), backgroundColor: c.danger, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                              child: Text('Eliminar', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w700)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          ),
         ],
+      ),
       ),
     );
   }

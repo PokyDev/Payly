@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/payly_confirm_sheet.dart';
 import '../widgets/payly_toggle.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -36,7 +37,7 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProviderStateMixin {
+class _SettingsScreenState extends State<SettingsScreen> {
   final _auth = AuthService();
   late final _rateCtrl = TextEditingController(text: widget.rate.toString());
   String _currency = 'COP';
@@ -44,17 +45,12 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
   bool _reminders = false;
   bool _showLogout = false;
   String? _username;
-  late final AnimationController _logoutAnim;
-  late final Animation<Offset> _logoutSlide;
 
   bool get _isGoogleUser => widget.user.providerData.any((p) => p.providerId == 'google.com');
 
   @override
   void initState() {
     super.initState();
-    _logoutAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
-    _logoutSlide = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _logoutAnim, curve: Curves.easeOutCubic));
     if (!_isGoogleUser) _loadUsername();
   }
 
@@ -63,20 +59,9 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
     if (mounted) setState(() => _username = name);
   }
 
-  void _openLogoutSheet() {
-    setState(() => _showLogout = true);
-    _logoutAnim.forward();
-  }
-
-  Future<void> _closeLogoutSheet() async {
-    await _logoutAnim.reverse();
-    if (mounted) setState(() => _showLogout = false);
-  }
-
   @override
   void dispose() {
     _rateCtrl.dispose();
-    _logoutAnim.dispose();
     super.dispose();
   }
 
@@ -237,7 +222,7 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                     child: OutlinedButton.icon(
-                      onPressed: _openLogoutSheet,
+                      onPressed: () => setState(() => _showLogout = true),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 52),
                         side: BorderSide(color: c.danger),
@@ -265,62 +250,23 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
             ),
           ),
 
-          // Logout modal
-          if (_showLogout) ...[
-            FadeTransition(
-              opacity: _logoutAnim,
-              child: GestureDetector(
-                onTap: _closeLogoutSheet,
-                child: Container(color: Colors.black.withValues(alpha: 0.55)),
-              ),
+          Positioned.fill(
+            child: PaylyConfirmSheet(
+              visible: _showLogout,
+              title: '¿Cerrar sesión?',
+              body: 'Tu historial está guardado en la nube\ny seguirá disponible.',
+              confirmLabel: 'Salir',
+              confirmColor: c.danger,
+              onConfirm: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('draft_days_${widget.user.uid}');
+                await prefs.remove('draft_tip_${widget.user.uid}');
+                await _auth.signOut();
+                widget.onLogout();
+              },
+              onDismiss: () => setState(() => _showLogout = false),
             ),
-            Positioned(
-              bottom: 0, left: 0, right: 0,
-              child: SlideTransition(
-                position: _logoutSlide,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 46),
-                    decoration: BoxDecoration(color: c.card, borderRadius: const BorderRadius.vertical(top: Radius.circular(26))),
-                    child: Column(
-                      children: [
-                        Container(width: 40, height: 4, decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2))),
-                        const SizedBox(height: 20),
-                        Text('¿Cerrar sesión?', style: GoogleFonts.dmSans(fontSize: 18, fontWeight: FontWeight.w800, color: c.text)),
-                        const SizedBox(height: 8),
-                        Text('Tu historial está guardado en la nube\ny seguirá disponible.', textAlign: TextAlign.center, style: GoogleFonts.dmSans(fontSize: 14, color: c.textSec, height: 1.5)),
-                        const SizedBox(height: 24),
-                        Row(children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _closeLogoutSheet,
-                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), backgroundColor: c.cardAlt, side: BorderSide.none, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                              child: Text('Cancelar', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w700, color: c.text)),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final prefs = await SharedPreferences.getInstance();
-                                await prefs.remove('draft_days_${widget.user.uid}');
-                                await prefs.remove('draft_tip_${widget.user.uid}');
-                                await _auth.signOut();
-                                widget.onLogout();
-                              },
-                              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), backgroundColor: c.danger, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                              child: Text('Salir', style: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w800)),
-                            ),
-                          ),
-                        ]),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );

@@ -27,22 +27,31 @@ class GenerateScreen extends StatefulWidget {
   State<GenerateScreen> createState() => _GenerateScreenState();
 }
 
-class _GenerateScreenState extends State<GenerateScreen> {
+class _GenerateScreenState extends State<GenerateScreen> with TickerProviderStateMixin {
   final _svc = PaymentsService();
   final Map<int, DayEntry> _days = {};
   final _tipCtrl = TextEditingController();
   bool _saving = false;
   bool _saved = false;
 
+  late AnimationController _bannerCtrl;
+  late Animation<Offset> _bannerSlide;
+  late Animation<double> _bannerFade;
+
   @override
   void initState() {
     super.initState();
     _loadDraft();
+    _bannerCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+    _bannerSlide = Tween<Offset>(begin: const Offset(0, -1.2), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _bannerCtrl, curve: Curves.easeOut));
+    _bannerFade = CurvedAnimation(parent: _bannerCtrl, curve: Curves.easeOut);
   }
 
   @override
   void dispose() {
     _tipCtrl.dispose();
+    _bannerCtrl.dispose();
     super.dispose();
   }
 
@@ -100,7 +109,9 @@ class _GenerateScreenState extends State<GenerateScreen> {
     if (!mounted) return;
     setState(() { _saving = false; _saved = true; _days.clear(); _tipCtrl.clear(); });
     _clearDraft();
-    Future.delayed(const Duration(milliseconds: 2800), () { if (mounted) setState(() => _saved = false); });
+    _bannerCtrl.forward();
+    Future.delayed(const Duration(milliseconds: 4580), () { if (mounted) _bannerCtrl.reverse(); });
+    Future.delayed(const Duration(milliseconds: 5000), () { if (mounted) setState(() => _saved = false); });
   }
 
   @override
@@ -110,7 +121,10 @@ class _GenerateScreenState extends State<GenerateScreen> {
 
     return Scaffold(
       backgroundColor: c.bg,
-      body: SafeArea(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 100),
           child: Column(
@@ -254,28 +268,88 @@ class _GenerateScreenState extends State<GenerateScreen> {
                 child: SizedBox(
                   height: 52,
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: active && !_saving ? _save : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: active ? AppColors.yellow : c.cardAlt,
-                      foregroundColor: active ? AppColors.yellowText : c.textTer,
-                      disabledBackgroundColor: c.cardAlt,
-                      disabledForegroundColor: c.textTer,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: _saving
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.yellowText))
-                        : Text(
-                            _saved ? '✓ Guardado exitosamente' : 'Guardar registro de pago',
-                            style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w800),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 480),
+                      curve: Curves.easeInOut,
+                      color: _saved
+                          ? c.success
+                          : (active ? AppColors.yellow : c.cardAlt),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: active && !_saving && !_saved ? _save : null,
+                          child: Center(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 320),
+                              transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                              child: _saving
+                                  ? const SizedBox(key: ValueKey('loading'), width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.yellowText))
+                                  : Text(
+                                      _saved ? '✓ Guardado exitosamente' : 'Guardar registro de pago',
+                                      key: ValueKey(_saved),
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: _saved ? Colors.white : (active ? AppColors.yellowText : c.textTer),
+                                      ),
+                                    ),
+                            ),
                           ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Info banner
+              AnimatedBuilder(
+                animation: _bannerCtrl,
+                builder: (context, child) {
+                  if (_bannerCtrl.value == 0) return const SizedBox.shrink();
+                  return ClipRect(
+                    child: SlideTransition(
+                      position: _bannerSlide,
+                      child: FadeTransition(
+                        opacity: _bannerFade,
+                        child: child,
+                      ),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: c.badgeAmber,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Icon(Icons.history_rounded, color: c.badgeAmberText, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Puedes revisar tus pagos registrados en el apartado de Historial',
+                            style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w500, color: c.badgeAmberText, height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
+      ),
       ),
     );
   }

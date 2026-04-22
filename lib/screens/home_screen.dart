@@ -91,15 +91,19 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: c.bg,
       body: PageView(
         controller: _pageController,
+        onPageChanged: (_) => FocusManager.instance.primaryFocus?.unfocus(),
         children: screens.map((s) => _KeepAlive(child: s)).toList(),
       ),
       bottomNavigationBar: _TabBar(
         pageController: _pageController,
-        onTap: (i) => _pageController.animateToPage(
-          i,
-          duration: const Duration(milliseconds: 320),
-          curve: Curves.easeInOut,
-        ),
+        onTap: (i) {
+          FocusScope.of(context).unfocus();
+          _pageController.animateToPage(
+            i,
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeInOut,
+          );
+        },
         c: c,
       ),
     );
