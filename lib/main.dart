@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'theme/app_theme.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
@@ -12,6 +13,7 @@ import 'widgets/payly_splash.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await initializeDateFormatting('es_CO');
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const PaylyApp());

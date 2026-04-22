@@ -68,8 +68,8 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
 
   Future<void> _delete() async {
     await _svc.deletePayment(widget.uid, widget.payment.id);
-    widget.onDeleted();
     if (mounted) Navigator.of(context).pop();
+    widget.onDeleted();
   }
 
   @override
@@ -117,6 +117,7 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                     child: Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
                       decoration: BoxDecoration(color: AppColors.yellow, borderRadius: BorderRadius.circular(22)),
                       child: Column(
@@ -130,9 +131,9 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
                             spacing: 8,
                             runSpacing: 6,
                             children: [
-                              _HeroPill('${fmtHrs(p.totalHours)} trabajadas'),
+                              _HeroPill('${fmtHrs(p.totalHours)} laboradas'),
                               _HeroPill('${p.days.length} días'),
-                              PaylyBadge(label: p.hasTip ? '✓ Propina recibida' : 'Sin propina', variant: p.hasTip ? BadgeVariant.green : BadgeVariant.amber),
+                              PaylyBadge(label: p.hasTip ? '✓ Con Propina' : 'X Sin propina', variant: p.hasTip ? BadgeVariant.green : BadgeVariant.amber),
                             ],
                           ),
                         ],

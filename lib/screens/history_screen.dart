@@ -105,7 +105,7 @@ class _PaymentCard extends StatelessWidget {
         builder: (_) => PaymentDetailScreen(
           payment: payment, uid: uid,
           onUpdated: (_) {},
-          onDeleted: () => Navigator.pop(context),
+          onDeleted: () {},
         ),
       )),
       child: Container(
