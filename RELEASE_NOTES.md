@@ -2,6 +2,26 @@
 
 ---
 
+## v1.2.0 · 2026-04-24
+
+> Primera versión pública estable. Payly sale de fase alpha y está disponible al público.
+
+### Novedades
+
+#### Splash screen con animación personalizada
+- Al abrir la app se reproduce una animación Lottie diseñada en Figma con identidad visual de Payly
+- La animación se reproduce una sola vez; al finalizar, la pantalla espera 2 segundos y luego desaparece con un fade-out suave de 700 ms
+- El contenido de la pantalla siguiente (inicio de sesión o pantalla principal) se precarga en segundo plano durante la pausa — no hay fondo negro entre la animación y la app
+- La transición es completamente fluida: el fade del splash revela el contenido ya renderizado
+
+### Cambios técnicos
+- Nuevo widget `PaylyInitSplash` en `lib/widgets/payly_init_splash.dart` con lógica de ciclo de vida del splash desacoplada de `main.dart`
+- Sincronización splash ↔ Firebase Auth: la app espera a que ambos estén listos antes de transitar (evita pantallas vacías o transiciones prematuras)
+- Stack en `main.dart` que renderiza la pantalla destino detrás del splash en cuanto Firebase resuelve el estado de autenticación
+- Paquete [`lottie ^3.3.1`](https://pub.dev/packages/lottie) integrado
+
+---
+
 ## payly-alpha v1.2 · 2026-04-22
 
 > Esta es una versión **pre-release** de fase alpha. No representa la versión final del producto.

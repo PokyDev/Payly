@@ -9,6 +9,7 @@ import 'theme/app_theme.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_screen.dart';
 import 'widgets/payly_splash.dart';
+import 'widgets/payly_init_splash.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +36,11 @@ class _PaylyAppState extends State<PaylyApp> {
   StreamSubscription<User?>? _authSub;
   bool _firstEvent = true;
 
+  // Sincronización splash ↔ auth: transita solo cuando ambos estén listos
+  bool _splashDone = false;
+  bool _authResolved = false;
+  User? _pendingUser;
+
   @override
   void initState() {
     super.initState();
@@ -48,16 +54,29 @@ class _PaylyAppState extends State<PaylyApp> {
     super.dispose();
   }
 
+  void _onSplashComplete() {
+    _splashDone = true;
+    if (_authResolved) _transitionFromSplash();
+  }
+
+  void _transitionFromSplash() {
+    setState(() {
+      _user = _pendingUser;
+      _phase = _pendingUser != null ? _AppPhase.home : _AppPhase.auth;
+    });
+  }
+
   Future<void> _onAuthChange(User? user) async {
     if (!mounted) return;
 
     if (_firstEvent) {
       _firstEvent = false;
-      // Initial load: skip splash, go straight to the right screen
+      // setState para que el build renderice la pantalla destino detrás del splash
       setState(() {
-        _user = user;
-        _phase = user != null ? _AppPhase.home : _AppPhase.auth;
+        _pendingUser = user;
+        _authResolved = true;
       });
+      if (_splashDone) _transitionFromSplash();
       return;
     }
 
@@ -96,8 +115,21 @@ class _PaylyAppState extends State<PaylyApp> {
   @override
   Widget build(BuildContext context) {
     final Widget screen = switch (_phase) {
-      _AppPhase.init =>
-        const _InitSplash(),
+      _AppPhase.init => Stack(
+          fit: StackFit.expand,
+          children: [
+            // Pantalla destino cargando en segundo plano mientras el splash es visible
+            if (_authResolved)
+              _pendingUser != null
+                  ? HomeScreen(
+                      user: _pendingUser!,
+                      darkMode: _darkMode,
+                      onThemeChanged: _setDarkMode,
+                    )
+                  : const AuthScreen(),
+            PaylyInitSplash(onComplete: _onSplashComplete),
+          ],
+        ),
       _AppPhase.auth =>
         const AuthScreen(),
       _AppPhase.loginSplash =>
@@ -139,28 +171,6 @@ class _PaylyAppState extends State<PaylyApp> {
           );
         },
         child: KeyedSubtree(key: ValueKey(_phase), child: screen),
-      ),
-    );
-  }
-}
-
-// Pantalla de carga inicial (mientras Firebase verifica el estado de auth)
-class _InitSplash extends StatelessWidget {
-  const _InitSplash();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF141210),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/Payly_ICON.png', width: 80, height: 80),
-            const SizedBox(height: 16),
-            const CircularProgressIndicator(color: AppColors.yellow, strokeWidth: 2),
-          ],
-        ),
       ),
     );
   }
