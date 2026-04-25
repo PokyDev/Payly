@@ -2,6 +2,28 @@
 
 ---
 
+## v1.2.1 · 2026-04-25
+
+> Parche de correcciones visuales y de estabilidad sobre v1.2.0.
+
+### Correcciones
+
+#### Splash nativo de Android 12+ (zoom sobre el ícono)
+- En dispositivos con Android 12 o superior, el sistema mostraba automáticamente un zoom animado sobre el ícono del launcher antes de que Flutter cargara, lo que reducía la resolución visible del ícono y rompía la coherencia visual con el splash personalizado
+- Se añadieron `values-v31/styles.xml` y `values-night-v31/styles.xml` que anulan el comportamiento por defecto de la SplashScreen API de Android 12+
+- El splash nativo ahora muestra un fondo sólido `#141210` con un ícono del mismo color (invisible), haciendo la transición al `PaylyInitSplash` de Lottie completamente imperceptible
+
+#### Re-render visible en `GenerateScreen` al completar el splash
+- Al terminar la animación del splash, `AnimatedSwitcher` destruía y recreaba `HomeScreen` por el cambio de fase (`init` → `home`), lo que forzaba a `GenerateScreen` a ejecutar `initState()` de nuevo y recargar el borrador desde `SharedPreferences`
+- El usuario veía un parpadeo momentáneo con la pantalla re-renderizándose y los datos del borrador reapareciendo
+- Solución: el `PaylyInitSplash` ahora es un overlay en un `Stack` padre independiente del `AnimatedSwitcher`; las claves de navegación son semánticas (`'home'` / `'auth'`) y no cambian al completar el splash — Flutter preserva el estado de `HomeScreen` y `GenerateScreen` sin recrearlos
+
+#### Re-renders espurios por eventos duplicados de Firebase Auth
+- El listener `authStateChanges` podía emitir el mismo usuario varias veces (ej. al refrescar el token), cayendo en la rama `else` que llamaba `setState` incondicionalmente
+- Añadida guardia `_user?.uid != user?.uid`: si el usuario no cambió, se omite el rebuild
+
+---
+
 ## v1.2.0 · 2026-04-24
 
 > Primera versión pública estable. Payly sale de fase alpha y está disponible al público.

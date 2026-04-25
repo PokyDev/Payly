@@ -84,16 +84,16 @@ class _PaylyAppState extends State<PaylyApp> {
     final isAuthenticated  = user != null;
 
     if (!wasAuthenticated && isAuthenticated) {
-      // Logged in → show login splash, then enter home
-      setState(() => _phase = _AppPhase.loginSplash);
+      // Logged in → set user immediately so HomeScreen preloads behind splash
+      setState(() { _user = user; _phase = _AppPhase.loginSplash; });
       await Future.delayed(const Duration(milliseconds: 2200));
-      if (mounted) setState(() { _user = user; _phase = _AppPhase.home; });
+      if (mounted) setState(() { _phase = _AppPhase.home; });
     } else if (wasAuthenticated && !isAuthenticated) {
-      // Logged out → show logout splash, then return to auth
-      setState(() => _phase = _AppPhase.logoutSplash);
+      // Logged out → clear user immediately so AuthScreen preloads behind splash
+      setState(() { _user = null; _phase = _AppPhase.logoutSplash; });
       await Future.delayed(const Duration(milliseconds: 2000));
-      if (mounted) setState(() { _user = null; _phase = _AppPhase.auth; });
-    } else {
+      if (mounted) setState(() { _phase = _AppPhase.auth; });
+    } else if (_user?.uid != user?.uid) {
       setState(() {
         _user = user;
         _phase = user != null ? _AppPhase.home : _AppPhase.auth;
@@ -114,41 +114,30 @@ class _PaylyAppState extends State<PaylyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget screen = switch (_phase) {
-      _AppPhase.init => Stack(
-          fit: StackFit.expand,
-          children: [
-            // Pantalla destino cargando en segundo plano mientras el splash es visible
-            if (_authResolved)
-              _pendingUser != null
-                  ? HomeScreen(
-                      user: _pendingUser!,
-                      darkMode: _darkMode,
-                      onThemeChanged: _setDarkMode,
-                    )
-                  : const AuthScreen(),
-            PaylyInitSplash(onComplete: _onSplashComplete),
-          ],
-        ),
-      _AppPhase.auth =>
-        const AuthScreen(),
-      _AppPhase.loginSplash =>
-        const PaylyTransitionSplash(
-          message: 'Cargando tu espacio...',
-          tagline: '¡Tu semana laboral\nsiempre al día! 🐤',
-        ),
-      _AppPhase.home =>
-        HomeScreen(
-          user: _user!,
-          darkMode: _darkMode,
-          onThemeChanged: _setDarkMode,
-        ),
-      _AppPhase.logoutSplash =>
-        const PaylyTransitionSplash(
-          message: 'Cerrando sesión...',
-          tagline: 'Hasta pronto.\nTu historial está seguro. 🔐',
-        ),
-    };
+    // Stable destination key: init-with-user and home both map to 'home'
+    // so AnimatedSwitcher never recreates HomeScreen when the splash completes.
+    String destKey;
+    Widget destination;
+
+    switch (_phase) {
+      case _AppPhase.init:
+        if (!_authResolved) {
+          destKey = 'pre-auth';
+          destination = const Scaffold(backgroundColor: Color(0xFF141210));
+        } else if (_pendingUser != null) {
+          destKey = 'home';
+          destination = HomeScreen(user: _pendingUser!, darkMode: _darkMode, onThemeChanged: _setDarkMode);
+        } else {
+          destKey = 'auth';
+          destination = const AuthScreen();
+        }
+      case _AppPhase.auth || _AppPhase.logoutSplash:
+        destKey = 'auth';
+        destination = const AuthScreen();
+      case _AppPhase.loginSplash || _AppPhase.home:
+        destKey = 'home';
+        destination = HomeScreen(user: _user!, darkMode: _darkMode, onThemeChanged: _setDarkMode);
+    }
 
     return MaterialApp(
       title: 'Payly',
@@ -156,21 +145,37 @@ class _PaylyAppState extends State<PaylyApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,
-      home: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 420),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final slide = Tween<Offset>(
-            begin: const Offset(0, 0.055),
-            end: Offset.zero,
-          ).animate(animation);
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: slide, child: child),
-          );
-        },
-        child: KeyedSubtree(key: ValueKey(_phase), child: screen),
+      home: Stack(
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 420),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final slide = Tween<Offset>(
+                begin: const Offset(0, 0.055),
+                end: Offset.zero,
+              ).animate(animation);
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(position: slide, child: child),
+              );
+            },
+            child: KeyedSubtree(key: ValueKey(destKey), child: destination),
+          ),
+          if (_phase == _AppPhase.init)
+            PaylyInitSplash(onComplete: _onSplashComplete),
+          if (_phase == _AppPhase.loginSplash)
+            const PaylyTransitionSplash(
+              message: 'Cargando tu espacio...',
+              tagline: '¡Tu semana laboral\nsiempre al día! 🐤',
+            ),
+          if (_phase == _AppPhase.logoutSplash)
+            const PaylyTransitionSplash(
+              message: 'Cerrando sesión...',
+              tagline: 'Hasta pronto.\nTu historial está seguro. 🔐',
+            ),
+        ],
       ),
     );
   }
